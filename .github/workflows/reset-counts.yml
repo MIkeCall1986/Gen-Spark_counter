@@ -1,0 +1,11 @@
+name: Reset Daily Request Counts
+on:
+  schedule:
+    - cron: '0 0 * * *' # Щоденно о 00:00 UTC
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Reset Request
+        run: |
+          curl -X POST https://your-railway-app.up.railway.app/api/reset-counts
