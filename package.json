@@ -1,14 +1,8 @@
 {
-  "name": "gen-spark-api",
-  "version": "1.0.0",
-  "main": "server.js",
   "dependencies": {
-    "express": "^4.17.1",
-    "sqlite3": "^5.0.2",
+    "express": "^4.18.2",
+    "sqlite3": "^5.1.6",
     "cors": "^2.8.5",
-    "node-fetch": "^2.6.7"
-  },
-  "scripts": {
-    "start": "node server.js"
+    "node-fetch": "^3.3.2"
   }
 }
