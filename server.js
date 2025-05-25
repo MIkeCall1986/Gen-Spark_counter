@@ -57,7 +57,7 @@ if (!process.env.FIREWORKS_API_KEY) {
   process.exit(1);
 }
 
-// Системний prompt для Mistral
+// Системний prompt
 const systemPrompt = `
 Ти — Gen Spark AI, асистент для українського військовослужбовця. 
 Надавай чіткі, корисні відповіді українською мовою з акцентом на:
@@ -115,7 +115,7 @@ app.post('/api/gen-spark', async (req, res) => {
           }
         );
 
-        // Формування повідомлень для Mistral API
+        // Формування повідомлень
         const messages = [
           { role: 'system', content: systemPrompt },
           ...history.slice(-3).flatMap(h => {
@@ -132,25 +132,31 @@ app.post('/api/gen-spark', async (req, res) => {
           { role: 'user', content: prompt || '' }
         ];
 
-        // Реалізація таймауту через AbortController
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000);
+        // Запит до Fireworks API
+        console.log('Sending request to Fireworks API with model: llama-v3p1-8b-instruct');
+        const postData = JSON.stringify({
+          model: 'accounts/fireworks/models/llama-v3p1-8b-instruct', // Нова модель
+          messages,
+          temperature: 0.6,
+          max_tokens: 500,
+          top_p: 1,
+          top_k: 40,
+          presence_penalty: 0,
+          frequency_penalty: 0
+        });
 
-        // Запит до Mistral API через Fireworks
-        console.log('Sending request to Mistral API');
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
         const response = await fetch('https://api.fireworks.ai/inference/v1/chat/completions', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${process.env.FIREWORKS_API_KEY}`,
-            'Accept': 'application/json'
+            'Accept': 'application/json',
+            'Content-Length': Buffer.byteLength(postData)
           },
-          body: JSON.stringify({
-            model: 'accounts/fireworks/models/mixtral-8x7b-instruct',
-            messages,
-            temperature: 0.7,
-            max_tokens: 500
-          }),
+          body: postData,
           signal: controller.signal
         });
 
@@ -158,16 +164,15 @@ app.post('/api/gen-spark', async (req, res) => {
 
         if (!response.ok) {
           const errorData = await response.text();
-          console.error('Mistral API error:', response.status, errorData);
-          throw new Error(`API request failed with status ${response.status}`);
+          console.error('Fireworks API error:', response.status, errorData);
+          throw new Error(`API request failed with status ${response.status}: ${errorData}`);
         }
 
         const data = await response.json();
 
-        // Перевірка структури відповіді Mistral
         if (!data?.choices?.[0]?.message?.content) {
-          console.error('Invalid Mistral API response structure:', data);
-          throw new Error('Invalid response from Mistral API');
+          console.error('Invalid Fireworks API response structure:', data);
+          throw new Error('Invalid response from Fireworks API');
         }
 
         const responseText = data.choices[0].message.content;
@@ -186,7 +191,7 @@ app.post('/api/gen-spark', async (req, res) => {
         res.json({
           response: responseText,
           remaining: 10 - (count + 1),
-          model: 'mixtral-8x7b-instruct'
+          model: 'llama-v3p1-8b-instruct'
         });
       }
     );
