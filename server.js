@@ -5,7 +5,6 @@ const express = require('express');
      const app = express();
      const port = process.env.PORT || 3000;
 
-     // Налаштування SQLite
      let db;
      try {
        db = new sqlite3.Database('gen_spark.db', (err) => {
@@ -42,22 +41,19 @@ const express = require('express');
        console.error('Failed to initialize SQLite:', err);
      }
 
-     // Middleware
      app.use(cors({
-       origin: 'http://asistant.infy.uk', // Дозволений origin
+       origin: 'http://asistant.infy.uk',
        methods: ['GET', 'POST'],
        allowedHeaders: ['Content-Type'],
        credentials: false
      }));
      app.use(express.json());
 
-     // Перевірка FIREWORKS_API_KEY
      if (!process.env.FIREWORKS_API_KEY) {
        console.error('Error: FIREWORKS_API_KEY is not set in environment variables');
        process.exit(1);
      }
 
-     // Системний prompt
      const systemPrompt = `
      Ти — Gen Spark AI, асистент для українського військовослужбовця. 
      Надавай чіткі, корисні відповіді українською мовою з акцентом на:
@@ -69,13 +65,11 @@ const express = require('express');
      Відповіді мають бути стислими (до 3 речень) та дієвими.
      `;
 
-     // Перевірка стану сервера
      app.get('/health', (req, res) => {
        console.log('Health check requested');
        res.status(200).json({ status: 'OK', message: 'Server is running', sqlite: !!db });
      });
 
-     // POST /api/gen-spark
      app.post('/api/gen-spark', async (req, res) => {
        const { prompt, history = [] } = req.body;
        const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
@@ -89,7 +83,6 @@ const express = require('express');
        }
 
        try {
-         // Перевірка лімітів
          db.get(
            `SELECT count FROM requests WHERE ip = ? AND date = ?`,
            [clientIp, today],
@@ -105,7 +98,6 @@ const express = require('express');
                return res.status(429).json({ error: 'Ліміт 10 запитів на день вичерпано' });
              }
 
-             // Оновлення лічильника
              db.run(
                `INSERT OR REPLACE INTO requests (ip, count, date) VALUES (?, ?, ?)`,
                [clientIp, count + 1, today],
@@ -115,7 +107,6 @@ const express = require('express');
                }
              );
 
-             // Формування повідомлень
              const messages = [
                { role: 'system', content: systemPrompt },
                ...history.slice(-3).flatMap(h => {
@@ -132,7 +123,6 @@ const express = require('express');
                { role: 'user', content: prompt || '' }
              ];
 
-             // Запит до Fireworks API
              console.log('Sending request to Fireworks API with model: llama-v3p1-8b-instruct');
              const postData = JSON.stringify({
                model: 'accounts/fireworks/models/llama-v3p1-8b-instruct',
@@ -177,7 +167,6 @@ const express = require('express');
 
              const responseText = data.choices[0].message.content;
 
-             // Збереження в історію
              db.run(
                `INSERT INTO history (ip, prompt, response, timestamp) VALUES (?, ?, ?, ?)`,
                [clientIp, prompt, responseText, new Date().toISOString()],
@@ -204,7 +193,6 @@ const express = require('express');
        }
      });
 
-     // GET /api/credits
      app.get('/api/credits', (req, res) => {
        const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
        const today = new Date().toISOString().split('T')[0];
@@ -230,7 +218,6 @@ const express = require('express');
        );
      });
 
-     // GET /api/history
      app.get('/api/history', (req, res) => {
        const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
@@ -254,7 +241,6 @@ const express = require('express');
        );
      });
 
-     // POST /api/reset-counts
      app.post('/api/reset-counts', (req, res) => {
        console.log('Received /api/reset-counts request');
 
